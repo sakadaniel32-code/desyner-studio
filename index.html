@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Desyner Studio · AI video editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Montserrat:wght@800;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0c0b0a;--panel:#151413;--line:#2a2724;--text:#f4f1ec;--mute:#9b948b;--acc:#e8622c}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 Inter,Arial,sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:14px 22px;border-bottom:1px solid var(--line)}
+.logo{width:30px;height:30px;border-radius:8px;background:var(--acc);color:#111;display:grid;place-items:center;font:20px Anton}
+header b{font:22px Anton;letter-spacing:.02em}header span{color:var(--mute);font-size:13px}
+.wrap{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(330px,1fr);gap:18px;padding:18px 22px;max-width:1500px;margin:auto}
+@media(max-width:900px){.wrap{grid-template-columns:1fr;padding:12px}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+h3{margin:0 0 10px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+#drop{border:2px dashed #3d3833;border-radius:14px;padding:60px 20px;text-align:center;cursor:pointer}
+#drop:hover{border-color:var(--acc)}#drop big{display:block;font:28px Anton;margin-bottom:6px;letter-spacing:.02em}
+video{width:100%;max-height:52vh;background:#000;border-radius:10px;display:block}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+button,select,input{font:inherit;color:var(--text);background:#211f1c;border:1px solid #37332e;border-radius:9px;padding:8px 12px}
+input[type=color]{padding:2px;width:40px;height:36px}
+button{cursor:pointer}button:hover{border-color:var(--acc)}button.pri{background:var(--acc);color:#111;border-color:var(--acc);font-weight:700}
+button:disabled{opacity:.45;cursor:not-allowed}
+#transcript{margin-top:14px;max-height:36vh;overflow:auto;line-height:2;font-size:16px;padding-right:6px}
+.w{padding:2px 1px;border-radius:4px;cursor:pointer}.w:hover{background:#2c2925}
+.w.fill{color:#ffb38f}.w.del{text-decoration:line-through;color:#5f5952;background:rgba(232,98,44,.08)}
+.w.cur{background:var(--acc);color:#111}.w.inshort{border-bottom:2px solid #6ea8ff}
+#chatlog{height:250px;overflow:auto;display:flex;flex-direction:column;gap:8px}
+.msg{padding:9px 12px;border-radius:12px;max-width:92%;white-space:pre-wrap}
+.msg.ai{background:#211f1c}.msg.you{background:var(--acc);color:#111;align-self:flex-end}
+#chatform{display:flex;gap:8px;margin-top:10px}#chatform input{flex:1}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.chip{font-size:12.5px;padding:5px 10px;border-radius:20px}
+.item{border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:8px}
+.item small{color:var(--mute)}.item video{max-height:320px;margin-top:8px}
+#tool{position:fixed;display:none;gap:6px;background:#1c1a18;border:1px solid #3d3833;border-radius:10px;padding:6px;z-index:9}
+#tool button{padding:6px 10px;font-size:13px}.side{display:flex;flex-direction:column;gap:18px}
+.bar{height:6px;background:#2a2724;border-radius:4px;overflow:hidden;margin-top:10px}.bar i{display:block;height:100%;background:var(--acc);width:0;transition:width .2s}
+.muted{color:var(--mute);font-size:13px}label{font-size:13px;color:var(--mute)}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--mute);border-top-color:transparent;border-radius:50%;animation:s 1s linear infinite;vertical-align:-2px}
+@keyframes s{to{transform:rotate(360deg)}}
+#rendering{position:fixed;inset:0;background:rgba(0,0,0,.82);display:none;place-items:center;z-index:20;text-align:center}
+#rendering canvas{max-height:60vh;max-width:80vw;border-radius:12px;border:1px solid var(--line)}
+</style></head><body>
+<header><div class="logo">D</div><b>DESYNER STUDIO</b><span>Edit video by editing text. Runs in your browser, so your footage never leaves your laptop.</span></header>
+<div class="wrap">
+ <div class="main">
+  <div class="card" id="uploadCard">
+   <div id="drop"><big>DROP A VIDEO HERE</big><span class="muted">or click to choose one (MP4, MOV or WEBM). The first run downloads the speech model once (about 80MB).</span>
+    <input type="file" id="file" accept="video/*" hidden></div>
+  </div>
+  <div class="card" id="editor" style="display:none">
+   <video id="vid" controls playsinline></video>
+   <div class="row">
+    <button class="pri" id="playEdit">▶ Play my edit</button>
+    <label><input type="checkbox" id="skip" checked> skip cut words</label>
+    <span class="muted" id="stats"></span>
+    <span style="flex:1"></span><button id="newVid">New video</button>
+   </div>
+   <div id="transcript"></div>
+   <div class="bar" id="tbar" style="display:none"><i></i></div>
+   <p class="muted" style="margin:8px 0 0">Click a word to cut or restore it. Highlight several words for more options. Orange-tinted words are fillers.</p>
+  </div>
+ </div>
+ <div class="side">
+  <div class="card"><h3>Chat with your editor</h3>
+   <div id="chatlog"></div>
+   <form id="chatform"><input id="chatin" placeholder="e.g. remove the ums and make 2 shorts of 30 seconds" autocomplete="off"><button class="pri">Send</button></form>
+   <div class="chips">
+    <button class="chip" data-c="remove the ums">Remove ums</button>
+    <button class="chip" data-c="make 3 shorts of 30 seconds">3 shorts × 30s</button>
+    <button class="chip" data-c="captions 2 words at a time">Captions 2 words</button>
+    <button class="chip" data-c="undo">Undo</button>
+   </div>
+  </div>
+  <div class="card"><h3>Look</h3>
+   <div class="row" style="margin-top:0">
+    <label>Format <select id="aspect"><option>9:16</option><option>1:1</option><option>16:9</option></select></label>
+    <label>Fit <select id="fit"><option value="blur">Blur bars</option><option value="crop">Crop to fill</option></select></label>
+    <label><input type="checkbox" id="caps" checked> Captions</label>
+    <label>Highlight <input type="color" id="color" value="#e8622c"></label>
+   </div>
+   <div class="row"><input id="hook" placeholder="Hook title for the first 3 seconds" style="flex:1"></div>
+  </div>
+  <div class="card"><h3>Shorts</h3><div id="shorts" class="muted"></div></div>
+  <div class="card"><h3>Exports</h3>
+   <button class="pri" id="exportMain" disabled>Export full edit</button>
+   <p class="muted" style="margin:8px 0 0">Exports play through in real time, so a 30s short takes about 30s. Keep this tab open while it renders.</p>
+   <div id="exports"></div></div>
+ </div>
+</div>
+<div id="tool"><button data-a="cut">✂ Cut</button><button data-a="restore">↺ Restore</button><button data-a="short">★ Make short</button><button data-a="play">▶ Play</button></div>
+<div id="rendering"><div><div id="rtitle" style="font:26px Anton;margin-bottom:12px">RENDERING…</div><div id="rprev"></div>
+ <div class="bar" style="width:300px;margin:14px auto"><i id="rbar"></i></div><div class="muted">Keep this tab in front until it finishes.</div>
+ <div class="row" style="justify-content:center"><button id="rcancel">Cancel</button></div></div></div>
+<script src="app.js"></script>
+</body></html>
